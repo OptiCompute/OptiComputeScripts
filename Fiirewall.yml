@@ -1,0 +1,154 @@
+- hosts: localhost
+  become: true
+  tasks: 
+
+    #Installing firewalld and configuring zones
+
+  - name: Install firewall if not already installed
+    ansible.builtin.dnf:
+      name: firewalld
+      state: present
+    register: firewall_install_result
+   
+
+  - name: Fail if firewall installation unsucessfull
+    fail:
+      msg: "Failed to install firewalld,check tasks for errors"
+    when: firewall_install_result.failed
+    when: firewall_install_result.failed
+
+
+  - name: Enabling Firewalld
+    ansible.builtin.systemd: 
+       name: firewalld
+       enabled: yes
+       state: started
+    register: systemd_result
+
+  - name: Fail if firewalld service start fails
+    fail:
+      msg: "Failed to enable and start firewalld service"
+    when: systemd_result.failed
+
+  - name: Set WAN and LAN interface variables
+    set_fact:
+      WAN_INT: "enX0"
+      LAN_INT: "enX1" #adjust these two with actual interfaces for the cluster this is to run on
+  - name: Enabling Firewalld
+    ansible.builtin.systemd: 
+        name: firewalld
+        enabled: yes
+        state: started
+    register: systemd_result
+      
+  - name: Fail if firewalld service start fails
+    fail:
+       msg: "Failed to enable and start firewalld service"
+    when: systemd_result.failed
+
+  - name: Set WAN and LAN interface variables
+    set_fact:
+       WAN_INT: "enX0"
+       LAN_INT: "enX1" #adjust these two with actual interfaces for the cluster this is to run on
+
+  - name : Modify connection zone
+    command: "nmcli con mod {{ item.interface }} connection.zone {{ item.zone }}"
+    loop:
+     - { interface: "{{ WAN_INT }}", zone: "external" }
+     - { interface: "{{ LAN_INT }}", zone: "internal" } 
+    register: modify_zones_result
+    ignore_errors: true 
+
+  - name: Fail if Modifying Zones Fails
+    fail:
+        msg: "Failed to modify connection zones. Check the modify connection zones task for errors."
+    when: modify_zones_result.results is not defined or modify_zones_result.results |map(attribute='rc') | max  !=0 or modify_zones_result.results | map(attribute='failed') | max | default(false)  
+
+  - debug:
+         var: modify_zones_result  # Print the result for debugging purposes
+
+
+  - debug:
+      var: modify_zones_result  # Print the result for debugging purposes
+
+  - name: Bring up connections with modified zones
+    command: "nmcli con up {{ item }}"
+    loop:
+        - "{{ WAN_INT }}"
+        - "{{ LAN_INT }}"
+    register: bring_up_connections_result
+    
+
+  - name: Fail if bringing up connections fails
+    fail:
+        msg: "Failed to bring up connections. Check the bring up connections task for errors."
+    when: bring_up_connections_result.results is not defined or bring_up_connections_result.results | map(attribute='failed') | max | default(false)
+
+
+    # New tasks for NAT
+
+
+  - name: Check if the policy_int_to_ext exists
+    ansible.builtin.stat:
+      path: /etc/firewalld/policies/policy_int_to_ext.xml
+    register: check_policy_result
+  
+
+  - name: Add firewall rules for NAT (Part 1)
+    ansible.builtin.shell: >
+        firewall-cmd --permanent --info-policy policy_int_to_ext || (
+        firewall-cmd --permanent --new-policy policy_int_to_ext &&
+        firewall-cmd --permanent --policy policy_int_to_ext --set-priority 100 &&
+        firewall-cmd --reload
+        )
+    register: nat_result
+    when: check_policy_result.stat.exists
+  
+
+  - name: Fail if NAT configuration (Part 1) fails
+    fail:
+       msg: "Failed to configure NAT (Part 1). Check the NAT configuration task for errors."
+    when: not nat_result
+
+  - name: Add firewall rules for NAT (Part 2)
+    ansible.builtin.shell: >
+      firewall-cmd --permanent --policy policy_int_to_ext --add-ingress-zone internal &&
+      firewall-cmd --permanent --policy policy_int_to_ext --add-ingress-zone external &&
+      firewall-cmd --permanent --policy policy_int_to_ext --set-target ACCEPT &&
+      firewall-cmd --permanent --zone=external --add-service=icmp --permanent &&
+      firewall-cmd --permanent --zone=external --add-masquerade --permanent &&
+      firewall-cmd --reload
+    register: nat_result2
+    when: check_policy_result is defined and (check_policy_result.rc | default(-1) == 0)
+    
+
+  - name: Fail if NAT configuration (Part 2) fails
+    fail:
+       msg: "Failed to configure NAT (Part 2). Check the NAT configuration task for errors."
+    when: nat_result2 is defined and nat_result2.failed | default(false)   
+  
+  - name: enable IP forwading 
+    sysctl: 
+      name: net.ipv4.ip_forward
+      value: 1
+      state: present
+      reload: yes
+    become: yes 
+
+    # Display information
+  - name: Display active zones
+    command: "firewall-cmd --get-active-zones"
+    register: active_zones
+
+  - name: Display firewall information for the external zone
+    command: "firewall-cmd --list-all --zone=external"
+    register: firewall_info_external
+    when: "'external' in active_zones.stdout"
+
+  - name: Display firewall information for the internal zone
+    command: "firewall-cmd --list-all --zone=internal"
+    register: firewall_info_internal
+    when: "'internal' in active_zones.stdout"
+
+  - name: Restart firewall
+    command: firewall-cmd --reload
