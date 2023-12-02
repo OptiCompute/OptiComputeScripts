@@ -2,30 +2,30 @@
 #local varibales 
 nodes=2
 MyUsername=opticompute
-nodes_priva_ip_wn=("10.2.0.1" "10.2.0.2")
+nodes_priva_ip_wn=("10.3.0.1" "10.3.0.2")
 #install EPEl 
 sudo dnf install epel-release
 dnf repolist
 
 #install python 
-sudo dnf install python3 -y
+sudo dnf -y install python3 
 
 #check where python is installed
 which python3 &&
 
 #install git 
-sudo dnf install git -y
+sudo dnf -y install git 
 
 #check where git is installed 
 which git &&
 
 #installing Ansible
-sudo dnf install python3-pip
+sudo dnf -y  install python3-pip
 python3 -m pip install --user ansible
 ansible --version
 
 #update 
-sudo dnf update 
+sudo dnf -y update 
 
 #create a key for ansible
 [ -e ~/.ssh/ansible ] || ssh-keygen -t ed25519 -N '' -f ~/.ssh/ansible -C "ansible_key"
