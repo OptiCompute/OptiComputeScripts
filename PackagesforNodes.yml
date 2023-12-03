@@ -1,0 +1,61 @@
+---
+- name: Install Packages on All Nodes
+  hosts: AllNodes
+  become: yes  # Run tasks with sudo
+
+  tasks:
+    - name: Install Base Packages
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - nfs-utils
+        - net-tools
+        - vim
+        - nano
+        - htop
+        - numactl
+        - tmux
+        - munge
+        - openmpi-devel
+        - environment-modules
+        - wget
+        - elinks
+        - dos2unix
+        - unix2dos
+        - hwloc
+        - hwloc-devel
+        - zsh
+        - btop
+        - tar
+        - epel-release
+
+    - name: Remove existing .zim directory
+      ansible.builtin.file:
+        path: "/root/.zim"
+        state: absent
+ 
+    - name: Install Zim
+      ansible.builtin.shell: "wget -nv -O - https://raw.githubusercontent.com/zimfw/install/master/install.zsh | zsh"
+      args:
+        executable: /bin/zsh
+      become: true
+
+    - name: Install Development Packages
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - libxml2-devel
+        - boost-devel
+        - kernel-devel
+        - gtk2-devel
+        - libgcc.i686
+        - fftw-devel
+        - glibc-devel.i686
+        - glibc.i686
+        - libgcc.i686
+        - libstdc++-devel.i686
+        - clinfo
+        - binutils       
+

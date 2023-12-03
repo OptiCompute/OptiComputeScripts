@@ -1,0 +1,66 @@
+---
+- name: Install Slurm on head node and compute nodes
+  hosts: AllNodes
+  become: true
+  gather_facts: true
+  vars:
+    num_sockets: 4
+    num_cpu_cores: 2
+    num_threads_per_core: 1
+  tasks:
+   - name: Install Slurm dependencies
+     ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+     loop:
+        - slurm
+
+   - name: Configure Slurm on head node
+     ansible.builtin.dnf:
+       name: slurm-slurmctld
+       state: present
+     when: "'hn' in inventory_hostname"
+
+   - name: Configure Slurm on compute nodes
+     ansible.builtin.dnf:
+       name: slurm-slurmd
+       state: present
+     when: "'wn' in inventory_hostname"
+
+     # edit conf file here
+   - name: Set ClusterName and ControlMachine in slurm.conf
+     ansible.builtin.lineinfile:
+             path: "/etc/slurm/slurm.conf"
+             regexp: "{{ item.regexp }}"
+             line: "{{ item.line }}"
+     loop:
+           - { regexp: '^ClusterName=', line: 'ClusterName=OptiCompute' }
+           - { regexp: '^SlurmctldHost=', line: 'SlurmctldHost=hn' }
+
+   - name: Add or update NodeName lines in slurm.conf
+     ansible.builtin.blockinfile:
+           path: "/etc/slurm/slurm.conf"
+           marker: "# {mark} ANSIBLE MANAGED BLOCK - DO NOT EDIT THIS SECTION"
+           block: |
+             NodeName=wn[01-02] CPUs=4 CoresPerSocket=2 Sockets=2 ThreadsPerCore=1 State=UNKNOWN 
+             PartitionName=debug Nodes=ALL Default=YES MaxTime=INFINITE State=UP
+           insertbefore: '^#COMPUTE NODES.*$'
+     delegate_to: localhost
+
+
+   - name: Start Slurm on compute nodes
+     systemd:
+        name: slurmd
+        state: started
+        enabled: yes
+     when: "'wn' in inventory_hostname"
+    
+   - name: Start Slurm on head node
+     systemd:
+        name: slurmctld
+        state: started
+        enabled: yes
+     when: "'hn' in inventory_hostname"
+    
+
+    

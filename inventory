@@ -1,18 +1,24 @@
 
 [login] 
-10.2.0.100
+ hn
 
 [ComputeNodes]
-10.2.0.1
-10.2.0.2
+wn01
+wn02
 
 [Nodes]
-10.2.0.100
-10.2.0.1
-10.2.0.2
+ hn
+ wn01
+ wn02
 
 [AllNodes:children]
 login
 ComputeNodes
 Nodes
+
+[OptiComputeMembers]
+SkyeSenatla
+SpheMvelase
+ZeeMalinga
+EnoMkhutyukelwa
 

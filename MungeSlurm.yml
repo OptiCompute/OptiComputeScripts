@@ -1,0 +1,110 @@
+--- 
+- name: Synchronize clocks using Chrony
+  hosts: AllNodes
+  become: yes
+  tasks: 
+
+
+   - name: Create Slurm and Slurm group if they dont exist doesnt exist
+     group: 
+        name: "{{ item.group }}"
+        state: present
+     with_items: 
+              - { group: 'slurm' }
+
+   - name: Generate Slurm user and Group
+     user: 
+          name: "{{ item.name }}"
+          state: present
+          uid: "{{ item.uid }}"
+          comment: "{{ item.comment }}"
+          group: "{{ item.group }}"
+     with_items: 
+         - { name: 'slurm', uid: 1500, comment: 'SLURM User', group: 'slurm' }
+
+
+   - name: Synchronize users and groups (including /etc/shadow)
+     getent: 
+         database: passwd
+     register: passwd_db
+
+   - name: Synchronize users and groups (including /etc/shadow)
+     getent: 
+         database: shadow
+     register: shadow_db
+
+
+   - name: Install Chrony
+     package:
+          name: chrony
+          state: present
+            
+   - name: Ensure Chrony is started and enabled
+     service:
+           name: chronyd
+           state: started
+           enabled: yes      
+                   
+   - name: Install EPEL Release if it hasnt been installed already
+     ansible.builtin.dnf:
+                    name: epel-release
+                    state: present
+
+  
+   - name: Install Munge and mung-libs from powertools repo
+     ansible.builtin.dnf:
+                 name: 
+                  -  munge
+                  -  munge-libs
+                 enablerepo: powertools
+                 state: present
+
+
+   - name: Generate Munge Key on headnode
+     command: /usr/sbin/create-munge-key
+     args:
+        creates: /etc/munge/munge.key
+     when: "'hn' in inventory_hostname"
+     
+   - name: Set ownership of Munge key file
+     command: chmod 400 /etc/munge/munge.key
+     when: "'hn' in inventory_hostname"
+
+   - name: Set group
+     command: chown :munge /etc/munge/munge.key
+     when: "'hn' in inventory_hostname" 
+
+   - name: Set Ownership of Munge Directories
+     become: yes
+     file:
+       path: "{{ item.path }}"
+       state: directory
+       owner: "{{ item.owner }}"
+       group: "{{ item.group }}"
+       mode: "{{ item.mode }}"
+     loop:
+       - { path: "/etc/munge", owner: "munge", group: "munge", mode: "0700" }
+       - { path: "/var/lib/munge", owner: "munge", group: "munge", mode: "0700" }
+       - { path: "/var/log/munge", owner: "munge", group: "munge", mode: "0700" }
+     when: "'hn' in inventory_hostname"
+   
+   - name: Esure logfile exists
+     file:
+       path: /var/log/munge/munged.log
+       state: touch
+       owner: munge
+       group: munge
+       mode: '0644'
+     
+   - name: Enable and restart Munge on hn
+     become: true
+     when: inventory_hostname == 'hn'
+     service: 
+       name: munge.service
+       state: restarted
+         
+
+
+
+
+

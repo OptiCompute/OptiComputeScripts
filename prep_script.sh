@@ -5,7 +5,7 @@ MyUsername=opticompute
 nodes_priva_ip_wn=("10.3.0.1" "10.3.0.2")
 #install EPEl 
 sudo dnf install epel-release
-dnf repolist
+dnf repo -y list
 
 #install python 
 sudo dnf -y install python3 
@@ -20,7 +20,7 @@ sudo dnf -y install git
 which git &&
 
 #installing Ansible
-sudo dnf -y  install python3-pip
+sudo dnf install python3-pip
 python3 -m pip install --user ansible
 ansible --version
 
@@ -31,7 +31,7 @@ sudo dnf -y update
 [ -e ~/.ssh/ansible ] || ssh-keygen -t ed25519 -N '' -f ~/.ssh/ansible -C "ansible_key"
 #copy key to Authoried keys 
 cd ~/.ssh
-cat ansible.pub >> authorized_keys
+cat ansible.pub > authorized_keys
 chmod 600 authorized_keys
 
 #Copy the ansible key to all nodes

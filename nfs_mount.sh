@@ -9,8 +9,8 @@ mount storage:/data/soft /soft
 mount storage:/home /home
 
 #Modify /etc/fstab file
-cat >  /etc/fstab <<-EOF
-scratch:/data/scratch               /scratch                 nfs        rw,tcp,noatime   0     0
-storage:/data/soft                  /soft                    nfs        rw,tcp,noatime   0     0
-storage:/home                       /home                    nfs        rw,tcp,noatime   0     0
+cat >> /etc/fstab <<-EOF
+scratch:/data/scratch          /scratch      nfs        rw,tcp,noatime   0 0
+storage:/data/soft             /soft         nfs        rw,tcp,noatime   0 0
+storage:/home                  /home         nfs        rw,tcp,noatime   0 0
 EOF

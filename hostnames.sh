@@ -1,8 +1,8 @@
 #!/bin/bash
 #Variables
-hn_priv_ip="10.4.0.100"         #Mofify!!!!
-wn01_priv_ip="10.4.0.1"         #Mofify!!!!
-wn02_priv_ip="10.4.0.2"         #Mofify!!!!
+hn_priv_ip="10.0.0.100"         #Mofify!!!!
+wn01_priv_ip="10.0.0.1"         #Mofify!!!!
+wn02_priv_ip="10.0.0.2"         #Mofify!!!!
 
 #Back up Original file
 sudo cp /etc/hosts /etc/hosts.backup
@@ -13,7 +13,7 @@ sudo bash -c "cat <<EOF > /etc/hosts
 ::1
 
 ${hn_priv_ip}     hn storage storage scratch login
-${wn01_priv_ip}     wn01 node01  wn02 node02
+${wn01_priv_ip}     wn01 node01
 ${wn02_priv_ip}     wn02 node02
 EOF"
 

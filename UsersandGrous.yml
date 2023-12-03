@@ -1,0 +1,119 @@
+---
+- name: Add users to Groups and set passwords
+  hosts: localhost
+  become: yes
+  vars:
+    users_to_add:
+      - SkyeSenatla
+      - SpheMvelase
+      - ZeeMalinga
+      - EnoMkhutyukelwa 
+    main_group: OptiComputeMembers
+    admin_group: wheel
+
+  tasks: 
+
+    - name: Create OpticomputeMmembers if it doesnt exist
+      group:
+        name: "{{ main_group }}"
+        state: present 
+
+    - name: Create users, add to groups, and set passowrds
+      script: "./CreateMembersPass.sh "
+
+    - name: Add users to OptiComputeMembers and wheel groups
+      user:
+        name: "{{ item }}"
+        groups: "{{ main_group }},{{ admin_group }}"
+        append: yes
+      with_items: "{{ users_to_add }}"  # Update this with your list of users
+    
+        
+- name: Adding memebers to sudoers file 
+  hosts: localhost
+  become: yes
+  vars: 
+        users_with_sudo:
+         - SkyeSenatla
+         - SpheMvelase
+         - ZeeMalinga
+         - EnoMkhutyukelwa
+        target_group: OptiComputeMembers
+
+
+  tasks:
+    
+     
+     - name: Ensure existence of .ssh directory
+       file:
+          path: "/home/{{ item }}/.ssh"
+          state: directory
+          mode: '0700'
+          owner: "{{ item }}"
+          group: "{{ item }}"
+       with_items: "{{ groups[target_group] }}"
+       register: ssh_directory
+
+     - debug:
+          var: ssh_directory
+            
+     
+     - name: ssh directory contents   
+       debug:
+          var: ssh_directory
+       
+     - name: Copy SSH key generation script to user home directories
+       copy: 
+          src: "./SSH_keysMembers.sh"
+          dest: /etc/profile.d/ssh_keys.sh
+          mode: '0755'
+    
+
+     - name: Set ownership of .ssh directory
+       file:
+         path: "/home/{{ item }}/.ssh"
+         state: directory
+         owner: "{{ item }}"
+         group: "{{ item }}"
+       with_items: "{{ users_with_sudo }}"
+       become: yes
+
+     
+     - name: Allow members to run sudo commands without password
+       lineinfile:
+         path: /etc/sudoers
+         line: "{{ item }} ALL=(ALL) NOPASSWD: ALL"
+       with_items: "{{ users_with_sudo }}"
+
+     - name: Run SSH key generation script on user login 
+       become_user: "{{ item }}"
+       shell:  "echo 'if [ -e \"$HOME/.ssh/keygen_script.sh\" ]; then \"$HOME/.ssh/keygen_script.sh\"; fi' >> $HOME/.bashrc"
+       with_items: "{{ users_with_sudo }}"
+       when: ssh_directory.results | default([]) | length > 0
+       become: yes
+       
+     - name : reload user .bashrc
+       become_user: "{{ item }}"
+       shell: "source $HOME/.bashrc"
+       with_items: "{{ users_with_sudo }}"
+       when: ssh_directory.results | default([]) | length > 0    
+
+
+     - name: Set correct permissions on .ssh directory
+       file:
+         path: "/home/{{ item }}/.ssh"
+         state: directory
+         mode: '0700'  # Set the correct permissions
+       loop: "{{ groups[target_group] }}"
+       when: ssh_directory.results | default([]) | length > 0
+
+     - name: Set correct permissions on authorized_keys file
+       file:
+         path: "/home/{{ item }}/.ssh/authorized_keys"
+         state: touch
+         mode: '0600'  # Set the correct permissions
+       with_items: "{{users_with_sudo }}"
+       when: ssh_directory.results | default([]) | length > 0
+       
+
+    

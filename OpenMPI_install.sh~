@@ -1,0 +1,65 @@
+#!/bin/bash
+##
+#variables
+APP_NAME=openmpi
+APP_VER=2.1.2
+APP_DEST=/soft/$APP_NAME/$APP_VER
+APP_TMP=/tmp/$APP_NAME/$APP_VER
+#
+[ -e $APP_TMP ] && rm -rf $APP_TMP
+mkdir /soft/modules/$APP_NAME
+mkdir -p $APP_TMP
+cd $APP_TMP
+#
+#install dependencies 
+rpm -q torque-devel > /dev/null || dnf -y install torque-devel
+#
+cd $APP_TMP
+[ -e $APP_NAME-${APP_VER}.tar.gz ] || wget http://www.openmpi.org/software/ompi/v${APP_VER::${#APP_VER}-2}/downloads/$APP_NAME-${APP_VER}.tar.gz
+ tar -zxvf $APP_NAME-${APP_VER}.tar.gz
+ cd $APP_TMP/$APP_NAME-${APP_VER}
+ #
+ ./configure \
+	  --prefix=$APP_DEST \
+	   --with-tm \
+	   --enable-mpi-thread-multiple
+ #
+ make -j && make install
+ #
+ #create module file
+ cat > /soft/modules/$APP_NAME/$APP_VER <<EOF
+#%Module 1.0
+#
+# OpenMPI module for use with the 'environment-modules' package:
+#
+proc ModulesHelp { } {
+ puts stderr "\\tAdds OpenMPI ($APP_VER) to your environment."
+}
+module-whatis "Sets the environment for using OpenMPI ($APP_VER)"
+set app_name $APP_NAME
+set app_ver $APP_VER
+set prefix $APP_DEST
+set arch $(uname -m)
+
+module load gcc
+
+prepend-path    PATH              \$prefix/bin
+prepend-path    LD_LIBRARY_PATH   \$prefix/lib
+prepend-path    INCLUDE            \$prefix/include
+prepend-path    MANPATH             \$prefix/share/man
+prepend-path    PKG_CONFIG_PATH     \$prefix/lib/pkgconfig
+prepend-path    PYTHONPATH /usr/lib64/python2.7/sitepackages/    \$app_name
+
+setenv          MPI_VER               \$app_ver
+setenv          MPI_HOME              \$prefix
+setenv          MPI_SYSCONFIG         \$prefix/etc
+setenv          MPI_BIN                \$prefix/bin
+setenv          MPI_INCLUDE            \$prefix/include
+setenv          MPI_LIB                 \$prefix/lib
+setenv          MPI_MAN                 \$prefix/share/man
+setenv          MPI_FORTRAN_MOD_DIR /usr/lib64/gfortran/modules/   \${app_name}-\$arch
+setenv           MPI_PYTHON_SITEARCH /usr/lib64/python2.7/sitepackages/   \$app_name
+setenv           MPI_COMPILER           \${app_name}-\$arch
+setenv           MPI_SUFFIX _           \${app_name}
+EOF
+

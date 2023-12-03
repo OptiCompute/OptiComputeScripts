@@ -1,9 +1,10 @@
 #!/bin/bash
 ## local Variables
 nodes=2
-hn_priv_ip="10.4.0.100"
+hn_priv_ip="10.3.0.100"
 hn_cird="24"
 Domain_name=opticompute.local
+curr_dir=$(pwd)
 
 #Correctlt set up hostnames for all  nodes
 sudo hostnamectl set-hostname hn.${Domain_name}
@@ -21,7 +22,13 @@ ln -s /data/soft /
 ln -s /data/scratch /
 
 #Install the NFS utilities, which are required later
+dnf -y update
 dnf -y install nfs-utils
+
+for i in $(seq 1 $nodes); do
+       #c Udate  all node
+      ssh -n wn0${i} "dnf -y update"
+done
 
 #Add firewall rules to allow NFS traffic from WNs:
 firewall-cmd --permanent --zone=internal --add-service=nfs
@@ -50,14 +57,15 @@ systemctl enable nfs-server
 #Installing the NFS utilities is required to be able to mount an NFS volume
 for i in $(seq 1 $nodes); do
        #copy hostnames files to all node
-        scp /home/opticompute/Scripts/OptiComputeScripts/hostnames.sh wn0${i}:
-        ssh -n wn0${i} "hostname; sh hostnames.sh "	
+        scp ${curr_dir}/hostnames.sh wn0${i}:
+        ssh -n wn0${i} "hostname; sh hostnames.sh "
 
 	echo "copying mount file to wn${i}"
- 	scp /home/opticompute/Scripts/OptiComputeScripts/nfs_mount.sh wn0${i}:
-	echo "running mount script"
-	ssh -n wn0${i} "hostname; sh  nfs_mount.sh "
-	echo "Mount Done on wn${i}"
+# 	scp ${curr_dir}/nfs_mount.sh wn0${i}:
+#	echo "running mount script"
+
+#	ssh -n wn0${i} "hostname; sh  nfs_mount.sh "
+#	echo "Mount Done on wn${i}"
 	#sudo ./nfs_mount.sh
 
 done
